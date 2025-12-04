@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import CheckAuth from "./components/check-auth.jsx";
 import Tickets from "./pages/tickets.jsx";
 import TicketDetailsPage from "./pages/ticket.jsx";
@@ -13,8 +13,12 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
+        {/* Default route: redirect to signup */}
+        <Route path="/" element={<Navigate to="/signup" replace />} />
+
+        {/* Protected tickets list */}
         <Route
-          path="/"
+          path="/tickets"
           element={
             <CheckAuth protectedRoute={true}>
               <Tickets />
