@@ -1,4 +1,4 @@
-import brcypt from "bcrypt";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import { inngest } from "../inngest/client.js";
@@ -6,24 +6,30 @@ import { inngest } from "../inngest/client.js";
 export const signup = async (req, res) => {
   const { email, password, skills = [] } = req.body;
   try {
-    const hashed = brcypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({ email, password: hashed, skills });
 
-    //Fire inngest event
-
-    await inngest.send({
-      name: "user/signup",
-      data: {
-        email,
-      },
-    });
+    // Fire inngest event (do not block signup if it fails)
+    try {
+      await inngest.send({
+        name: "user/signup",
+        data: {
+          email,
+        },
+      });
+    } catch (e) {
+      console.error("Inngest send failed", e.message);
+    }
 
     const token = jwt.sign(
       { _id: user._id, role: user.role },
       process.env.JWT_SECRET
     );
 
-    res.json({ user, token });
+    const safeUser = user.toObject();
+    delete safeUser.password;
+
+    res.json({ user: safeUser, token });
   } catch (error) {
     res.status(500).json({ error: "Signup failed", details: error.message });
   }
@@ -33,10 +39,10 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = User.findOne({ email });
+    const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    const isMatch = await brcypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials" });
@@ -47,7 +53,10 @@ export const login = async (req, res) => {
       process.env.JWT_SECRET
     );
 
-    res.json({ user, token });
+    const safeUser = user.toObject();
+    delete safeUser.password;
+
+    res.json({ user: safeUser, token });
   } catch (error) {
     res.status(500).json({ error: "Login failed", details: error.message });
   }
